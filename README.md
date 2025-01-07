@@ -14,4 +14,4 @@ go run main.go -wrapper=azure2021 -keepalive=60 -tolerance=100 <invocation_file_
 ```
 
 ## output format  
-| time | isColdStartFrom0 | PeriodicFunction |
+| time | ColdstartFrom0 | PeriodicInvocation |
