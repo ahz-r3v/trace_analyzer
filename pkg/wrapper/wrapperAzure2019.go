@@ -19,7 +19,7 @@ func ParseAndConvertAzure2019(
 	  invocationFilePath string, 
 	  durationFilePath string, 
 	  startOfDay time.Time,
-	  iatDistribution common.IatDistribution, // common.Exponential / common.Uniform / common.Equidistant
+	  iatDistribution common.IatDistribution,// common.Exponential / common.Uniform / common.Equidistant
 	  shiftIAT bool,
 	  granularity common.TraceGranularity,
 	) ([]info.FunctionInvocation, error) {

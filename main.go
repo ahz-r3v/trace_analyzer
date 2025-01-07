@@ -24,9 +24,9 @@ func main() {
 	wrapperType := flag.String("wrapper", "", "[azure2019 / azure2021]")
 	keepAlive := flag.Float64("keepalive", 60, "Seconds an instance remains alive after invocation ends")
 	tolerance := flag.Float64("tolerance", 100, "Tolerance (in milliseconds) for grouping intervals")
-	iatDistribution := flag.Int("iatDistribution", 1, "[0=Exponential / 1=Uniform / 2=Equidistant]")
+	iatDistribution := flag.Int("iatDistribution", 0, "[0=Exponential / 1=Uniform / 2=Equidistant]")
 	shiftIAT := flag.Bool("shiftIAT", false, "shiftIAT")
-	granularity := flag.Int("granularity", 0, "granularity")
+	granularity := flag.Int("granularity", 0, "[0=MinuteGranularity / 1=SecondGranularity]")
 	flag.Parse()
 	nonFlagArgs := flag.Args()
 	invocationFile := ""
