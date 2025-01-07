@@ -10,7 +10,7 @@ import (
 )
 
 // ParseAndConvertCSV2 processes the second format of CSV file and converts it into invocation timestamps.
-func ParseAndConvertAzure2021(inputFilePath string, startOfDay time.Time) ([]info.InvocationTimestamps, error) {
+func ParseAndConvertAzure2021(inputFilePath string, startOfDay time.Time) ([]info.FunctionInvocation, error) {
 	// Open the CSV file
 	file, err := os.Open(inputFilePath)
 	if err != nil {
@@ -30,7 +30,7 @@ func ParseAndConvertAzure2021(inputFilePath string, startOfDay time.Time) ([]inf
 	}
 
 	// Define the results
-	results := make(map[string]info.InvocationTimestamps)
+	results := make(map[string]info.FunctionInvocation)
 
 	// Process each row in the CSV
 	for i, row := range rows {
@@ -63,8 +63,8 @@ func ParseAndConvertAzure2021(inputFilePath string, startOfDay time.Time) ([]inf
 		// fmt.Println("d:", duration)
 
 		// Convert timestamps and duration to milliseconds
-		endTimeMillis := uint64(endTimestamp * 1000) 
-		durationMillis := uint64(duration * 1000)
+		endTimeMillis := float64(endTimestamp * 1000) 
+		durationMillis := float64(duration * 1000)
 
 		// Calculate start timestamp
 		startTimeMillis := endTimeMillis - durationMillis 
@@ -73,22 +73,22 @@ func ParseAndConvertAzure2021(inputFilePath string, startOfDay time.Time) ([]inf
 
 		// Update the results map
 		if _, exists := results[hashFunction]; !exists {
-			results[hashFunction] = info.InvocationTimestamps{
-				HashFunction: hashFunction,
-				Timestamps:   []uint64{},
-				Duration:     []uint64{},
+			results[hashFunction] = info.FunctionInvocation{
+				FunctionName: hashFunction,
+				Timestamps:   []float64{},
+				Duration:     []float64{},
 			}
 		}
 
 		// Append the invocation data
 		invocation := results[hashFunction]
-		invocation.Timestamps = append(invocation.Timestamps, startTimeMillis + uint64(startOfDay.UnixNano()/1e6))
+		invocation.Timestamps = append(invocation.Timestamps, startTimeMillis + float64(startOfDay.UnixNano()/1e6))
 		invocation.Duration = append(invocation.Duration, durationMillis)
 		results[hashFunction] = invocation
 	}
 
 	// Convert map to slice
-	var resultSlice []info.InvocationTimestamps
+	var resultSlice []info.FunctionInvocation
 	for _, invocation := range results {
 		resultSlice = append(resultSlice, invocation)
 	}

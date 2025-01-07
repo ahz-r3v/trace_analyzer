@@ -1,34 +1,86 @@
 package main
 
 import (
-	"fmt"
+	"flag"
+	// "fmt"
 	"log"
-	"trace-analyser/pkg/logic"
-	"trace-analyser/pkg/plot"
-	"trace-analyser/pkg/wrapper"
 	"time"
+	// "sort"
+	"trace-analyser/pkg/logic"
+	"trace-analyser/pkg/info"
+	"trace-analyser/pkg/wrapper"
+	"trace-analyser/pkg/encode"
+	"github.com/vhive-serverless/loader/pkg/common"
+	// "encoding/csv"
 )
 
-func main() {
-	// Path to the input CSV file
-	traceFile := "data/azure-2019/invocations_per_function_md.anon.d01.csv"
-	duraFile := "data/azure-2019/function_durations_percentiles.anon.d01.csv"
-	// azure2021File := "data/azure-2021/azure2021.txt"
+// func main() {
 
-	// Step 1: Process the trace file and get invocation data
+// }
+
+func main() {
+
+	// Parse args
+	wrapperType := flag.String("wrapper", "", "[azure2019 / azure2021]")
+	keepAlive := flag.Float64("keepalive", 60, "Seconds an instance remains alive after invocation ends")
+	tolerance := flag.Float64("tolerance", 100, "Tolerance (in milliseconds) for grouping intervals")
+	iatDistribution := flag.Int("iatDistribution", 1, "[0=Exponential / 1=Uniform / 2=Equidistant]")
+	shiftIAT := flag.Bool("shiftIAT", false, "shiftIAT")
+	granularity := flag.Int("granularity", 0, "granularity")
+	flag.Parse()
+	nonFlagArgs := flag.Args()
+	invocationFile := ""
+	durationFile := ""
+	outputPath := ""
 	startOfDay := time.Date(2024, 1, 1, 0, 0, 0, 0, time.FixedZone("UTC+8", 8*60*60)) // Fixed day for calculation
-	invocationTimestamps, err := wrapper.ParseAndConvertAzure2019(traceFile, duraFile, startOfDay)
-	// invocationTimestamps, err := wrapper.ParseAndConvertAzure2021(azure2021File, startOfDay)
-	if err != nil {
-		log.Fatalf("Error processing trace file: %v", err)
+	invocationTimestamps := make([]info.FunctionInvocation, 0)
+	var err error
+
+	switch *wrapperType{
+	case "":
+		log.Fatalf("-wrapper not defined.")
+	case "azure2019":
+		if len(nonFlagArgs) != 3 {
+			log.Fatalf("-wrapper=azure2019 need 3 Args!")
+		} else {
+			invocationFile = nonFlagArgs[0]
+			durationFile = nonFlagArgs[1]
+			outputPath = nonFlagArgs[2]
+			// Step 1: Process the trace file and get invocation data
+			invocationTimestamps, err = wrapper.ParseAndConvertAzure2019(invocationFile, durationFile, startOfDay, 
+				common.IatDistribution(*iatDistribution), *shiftIAT, common.TraceGranularity(*granularity))
+			if err != nil {
+				log.Fatalf("Error processing trace file: %v", err)
+			}
+		}
+	case "azure2021":
+		if len(nonFlagArgs) != 2 {
+			log.Fatalf("-wrapper=azure2021 need 2 Args!")
+		} else {
+			invocationFile = nonFlagArgs[0]
+			outputPath = nonFlagArgs[1]
+			// Step 1: Process the trace file and get invocation data
+			invocationTimestamps, err = wrapper.ParseAndConvertAzure2021(invocationFile, startOfDay)
+			if err != nil {
+				log.Fatalf("Error processing trace file: %v", err)
+			}
+		}
+	default:
 	}
 
+	// // Step 1: Process the trace file and get invocation data
+	// invocationTimestamps, err := wrapper.ParseAndConvertAzure2019(traceFile, duraFile, startOfDay)
+	// // invocationTimestamps, err := wrapper.ParseAndConvertAzure2021(azure2021File, startOfDay)
+	// if err != nil {
+	// 	log.Fatalf("Error processing trace file: %v", err)
+	// }
+
 	// Step 2: Analyze cold starts for each function
-	analyzer := logic.ColdStartAnalyzer{KeepAlive: uint64(60)}
+	analyzer := logic.ColdStartAnalyzer{KeepAlive: float64(*keepAlive)}
 
 	// allInvocations, _ := analyzer.ExpandInvocations(invocationTimestamps)
 
-	periodicInvocations, nonPeriodicInvocations, err := analyzer.FilterPeriodicInvocations(invocationTimestamps, 100)
+	periodicInvocations, _, err := analyzer.FilterPeriodicInvocations(invocationTimestamps, *tolerance)
 	if err != nil {
 		log.Fatalf("Error finding Periodic invocations: %v", err)
 	} 
@@ -38,59 +90,16 @@ func main() {
 		log.Fatalf("Error calculating coldstarts: %v", err)
 	}
 
-	nonPeriodicColdStarts, err := analyzer.AnalyzeColdStarts(nonPeriodicInvocations)
-	if err != nil {
-		log.Fatalf("Error calculating coldstarts: %v", err)
-	}
-
 	coldStartTimestamps, err := analyzer.AnalyzeColdStarts(invocationTimestamps)
 	if err != nil {
 		log.Fatalf("Error calculating coldstarts: %v", err)
 	}
 
-	coldStartTimestampsFrom0, err := analyzer.AnalyzeColdStartsFrom0(invocationTimestamps)
+	coldStartFrom0Timestamps, err := analyzer.AnalyzeColdStartsFrom0(invocationTimestamps)
 	if err != nil {
 		log.Fatalf("Error calculating coldstarts: %v", err)
 	}
 
-	// Step 3: Plot cold start statistics
-	fmt.Printf("len(clodStartTimestamps): %d\n", (len(coldStartTimestamps)))
-	startOfDayMilliSec := uint64(startOfDay.UnixNano()) / 1e6 // Fixed day for calculation
-
-	allData := [][]uint64{coldStartTimestamps, coldStartTimestampsFrom0}
-	legends := []string{"cold starts from N", "cold starts from 0"}
-	alphas := []float64{1, 1}
-	err = plot.PlotMultipleColdStarts(allData, legends, alphas, startOfDayMilliSec, "both_cold_starts_1.png")
-	if err != nil {
-		log.Fatalf("Error creating plot: %v", err)
-	}
-	fmt.Printf("Cold start statistics plotted successfully: %s\n", "cold_starts_per_minute.png")
-
-	allData = [][]uint64{coldStartTimestamps, periodicColdStarts, nonPeriodicColdStarts}
-	legends = []string{"cold starts from N", "periodic Cold Starts from N", "non-periodic Cold Starts"}
-	alphas = []float64{1, 1, 1}
-	err = plot.PlotMultipleColdStarts(allData, legends, alphas, startOfDayMilliSec, "3_periodic_cold_starts_1.png")
-	if err != nil {
-		log.Fatalf("Error creating plot: %v", err)
-	}
-	fmt.Printf("Cold start statistics plotted successfully: %s\n", "cold_starts_per_minute.png")
-
-	allData = [][]uint64{coldStartTimestamps, periodicColdStarts}
-	legends = []string{"cold starts from N", "periodic Cold Starts from N"}
-	alphas = []float64{1, 1}
-	err = plot.PlotMultipleColdStarts(allData, legends, alphas, startOfDayMilliSec, "periodic_cold_starts_1.png")
-	if err != nil {
-		log.Fatalf("Error creating plot: %v", err)
-	}
-	fmt.Printf("Cold start statistics plotted successfully: %s\n", "cold_starts_per_minute.png")
-
-	allData = [][]uint64{nonPeriodicColdStarts}
-	legends = []string{"non-periodic Cold Starts"}
-	alphas = []float64{1}
-	err = plot.PlotMultipleColdStarts(allData, legends, alphas, startOfDayMilliSec, "non-periodic_cold_starts_1.png")
-	if err != nil {
-		log.Fatalf("Error creating plot: %v", err)
-	}
-	fmt.Printf("Cold start statistics plotted successfully: %s\n", "cold_starts_per_minute.png")
-	
+	// Step 3: Output cold start statistics
+	encode.EncodeToCSV(coldStartTimestamps, coldStartFrom0Timestamps, periodicColdStarts, outputPath)
 }

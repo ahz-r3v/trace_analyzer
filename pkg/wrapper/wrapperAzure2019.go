@@ -7,20 +7,29 @@ import (
 	"os"
 	"strconv"
 	"time"
-	// "regexp"
-	// "strings"
 	"trace-analyser/pkg/info"
+	"github.com/vhive-serverless/loader/pkg/generator"
+	"github.com/vhive-serverless/loader/pkg/common"
+	"github.com/gocarina/gocsv"
 )
 
 
 // ParseAndConvert reads the input CSV file, processes invocation counts, and converts them into timestamps.
-func ParseAndConvertAzure2019(invocationFilePath string, durationFilePath string, startOfDay time.Time) ([]info.InvocationTimestamps, error) {
+func ParseAndConvertAzure2019(
+	  invocationFilePath string, 
+	  durationFilePath string, 
+	  startOfDay time.Time,
+	  iatDistribution common.IatDistribution, // common.Exponential / common.Uniform / common.Equidistant
+	  shiftIAT bool,
+	  granularity common.TraceGranularity,
+	) ([]info.FunctionInvocation, error) {
 	// Open the CSV file
 	invoFile, err := os.Open(invocationFilePath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open file: %w", err)
 	}
 	defer invoFile.Close()
+
 	duraFile, err := os.Open(durationFilePath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open file: %w", err)
@@ -33,79 +42,79 @@ func ParseAndConvertAzure2019(invocationFilePath string, durationFilePath string
 	if err != nil {
 		return nil, fmt.Errorf("failed to read CSV: %w", err)
 	}
-	duraReader := csv.NewReader(duraFile)
-	duraRows, err := duraReader.ReadAll()
-	if err != nil {
-		return nil, fmt.Errorf("failed to read CSV: %w", err)
+
+	functionRuntimeStatsList := []*common.FunctionRuntimeStats{}
+	err = gocsv.UnmarshalFile(duraFile, &functionRuntimeStatsList)
+	if err != nil { // Load all durations from file
+		return nil, fmt.Errorf("failed parsing duration file: %w", err)
 	}
 
-	var results []info.InvocationTimestamps
-	// blocks := strings.Split(invocationFilePath, ".")
-	// re := regexp.MustCompile(`d(\d+)`)
-	// matches := re.FindStringSubmatch(blocks[len(blocks)-2])
-	// day, _ := strconv.Atoi(matches[1])
-	// startOfDay := time.Date(2019, 7, day, 0, 0, 0, 0, time.UTC) // Set a fixed date for calculation
-	// startOfDay := time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC) // Set a fixed date for calculation
-
-	// Process invocation
+	results := make([]info.FunctionInvocation, 0)
 	for i, row := range invoRows {
-		// Skip header row
 		if i == 0 {
 			continue
 		}
-		if i % 2500 == 0 {
-			fmt.Printf("Progerss: %.2f\n", float32(i / len(invoRows)))
-		}
-		// hashApp := row[1]
-		hashFunction := row[1] + row[2]
-
-		// Search in durationFile to find the corresponding duration
-		var durations []uint64
-		var duration uint64
-		for j, duraRow := range duraRows {
-			if duraRow[1]+duraRow[2] == hashFunction {
-				d, err := strconv.Atoi(duraRow[3])
-				if err != nil {
-					return nil, fmt.Errorf("invalid duration at line %d, column %d: %w", j+1, 3, err)
-				}
-				duration = uint64(d) // Convert duration to milliseconds
-				break
+		// Parse function invocation stats
+		var invocations []int
+		hashOwner := row[0]
+		hashApp := row[1]
+		hashFunction := row[2]
+		index := hashOwner+ hashApp + hashFunction
+		trigger := row[3]
+		
+		for j := 4; j < len(row); j++ {
+			invocationCount, err := strconv.Atoi(row[j])
+			if err != nil {
+				return nil, fmt.Errorf("failed parsing invocation file, cannot convert %s to int: %w", row[j], err)
 			}
+			invocations = append(invocations, invocationCount)
+		}
+
+		var funcInvocationStats = common.FunctionInvocationStats{
+			HashOwner: 		hashOwner,
+			HashApp: 		hashApp,
+			HashFunction: 	hashFunction,
+			Trigger:		trigger,
+
+			Invocations:	invocations,
+		}
+		var function = common.Function{}
+		// Search in durationFile to find the corresponding duration
+		for _, functionRuntimeStats := range functionRuntimeStatsList {
+			if functionRuntimeStats.HashOwner + functionRuntimeStats.HashApp + functionRuntimeStats.HashFunction == index {
+				function.Name =	index
+				function.InvocationStats = &funcInvocationStats
+				function.RuntimeStats =	functionRuntimeStats
+				break
+			} 
 		}
 
 		// Convert invocation counts to timestamps
-		var timestamps []uint64
-		for minute, countStr := range row[4:] {
-			count, err := strconv.Atoi(countStr)
-			if err != nil {
-				return nil, fmt.Errorf("invalid invocation count at line %d, column %d: %w", i+1, minute+5, err)
-			}
+		var timestamps []float64
+		var seed int64 = 123456789
+		specGen := generator.NewSpecificationGenerator(seed)
+		specResult := specGen.GenerateInvocationData(&function, iatDistribution, shiftIAT, granularity)
+		timestamps = expandByColumn(specResult.IAT)
 
-			if count > 0 {
-				// Limiting for testing only; without this limit, it may cause OOM on a 16GB memory system.
-				if count > 600 {
-					count = 600
-				}
-				// Calculate timestamps for the current minute
-				minuteStart := startOfDay.Add(time.Duration(minute) * time.Minute)
-				interval := time.Second * 60 / time.Duration(count) // Interval in time.Duration
-
-				for j := 0; j < count; j++ {
-					invocationTime := minuteStart.Add(time.Duration(j) * interval)
-					timestamps = append(timestamps, uint64(invocationTime.UnixNano()/1e6))
-					durations = append(durations, duration)
-				}
-			}
-		}
-
-
-		results = append(results, info.InvocationTimestamps{
+		results = append(results, info.FunctionInvocation{
 			// HashApp:      hashApp,
-			HashFunction: hashFunction,
+			FunctionName: index,
 			Timestamps:   timestamps,
-			Duration: 	  durations,
+			Duration: 	  specResult.RawDuration,
 		})
 	}
 	log.Println("wrapper.ParseAndConvert return")
 	return results, nil
+}
+
+func expandByColumn(matrix [][]float64) []float64 {
+	rows := len(matrix)
+	cols := len(matrix[0])
+	var result []float64
+	for col := 0; col < cols; col++ { 
+		for row := 0; row < rows; row++ {
+			result = append(result, matrix[row][col])
+		}
+	}
+	return result
 }
