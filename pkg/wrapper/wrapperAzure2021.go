@@ -5,12 +5,11 @@ import (
 	"fmt"
 	"os"
 	"strconv"
-	"time"
 	"trace-analyser/pkg/info"
 )
 
 // ParseAndConvertCSV2 processes the second format of CSV file and converts it into invocation timestamps.
-func ParseAndConvertAzure2021(inputFilePath string, startOfDay time.Time) ([]info.FunctionInvocation, error) {
+func ParseAndConvertAzure2021(inputFilePath string) ([]info.FunctionInvocation, error) {
 	// Open the CSV file
 	file, err := os.Open(inputFilePath)
 	if err != nil {
@@ -82,7 +81,7 @@ func ParseAndConvertAzure2021(inputFilePath string, startOfDay time.Time) ([]inf
 
 		// Append the invocation data
 		invocation := results[hashFunction]
-		invocation.Timestamps = append(invocation.Timestamps, startTimeMillis + float64(startOfDay.UnixNano()/1e6))
+		invocation.Timestamps = append(invocation.Timestamps, startTimeMillis)
 		invocation.Duration = append(invocation.Duration, durationMillis)
 		results[hashFunction] = invocation
 	}

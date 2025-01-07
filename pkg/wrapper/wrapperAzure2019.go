@@ -6,7 +6,6 @@ import (
 	"log"
 	"os"
 	"strconv"
-	"time"
 	"trace-analyser/pkg/info"
 	"github.com/vhive-serverless/loader/pkg/generator"
 	"github.com/vhive-serverless/loader/pkg/common"
@@ -18,7 +17,6 @@ import (
 func ParseAndConvertAzure2019(
 	  invocationFilePath string, 
 	  durationFilePath string, 
-	  startOfDay time.Time,
 	  iatDistribution common.IatDistribution,// common.Exponential / common.Uniform / common.Equidistant
 	  shiftIAT bool,
 	  granularity common.TraceGranularity,
