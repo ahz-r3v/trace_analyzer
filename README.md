@@ -12,7 +12,8 @@ go run main.go -wrapper=azure2019 -keepalive=60 -tolerance=100
 
 **for azure2021**
 ```
-go run main.go -wrapper=azure2021 -keepalive=60 -tolerance=100 <invocation_file_path> <output_file_path>  
+go run main.go -wrapper=azure2021 -keepalive=60 -tolerance=100 
+<invocation_file_path> <output_file_path>  
 ```
 
 ## output format  
