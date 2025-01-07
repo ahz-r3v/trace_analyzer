@@ -1,5 +1,5 @@
-#Trace_analyzer  
-##usage  
+# Trace_analyzer  
+## usage  
 
 **for azure2019**
 ```
@@ -13,5 +13,5 @@ go run main.go -wrapper=azure2019 -keepalive=60 -tolerance=100 -iatDistribution=
 ./trace_analyzer -wrapper=azure2021 -keepalive=60 -tolerance=100 <invocation_file_path> <output_file_path>  
 ```
 
-##output format  
+## output format  
 | time | isColdStartFrom0 | PeriodicFunction |
