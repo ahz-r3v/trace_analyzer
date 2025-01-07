@@ -1,14 +1,16 @@
 package encode
 
 import (
-	"sort"
-	"os"
-	"log"
-	"strconv"
 	"encoding/csv"
+	"log"
+	"os"
+	"sort"
+	"strconv"
+	"trace-analyser/pkg/info"
 )
 
-func EncodeToCSV(allColdstarts []float64, coldstartsFrom0 []float64, periodicColdstarts []float64, outputPath string) error {
+func EncodeToCSV(allColdstarts []info.LabeledTimestamp, coldstartsFrom0 []info.LabeledTimestamp, 
+	  periodicColdstarts []info.LabeledTimestamp, outputPath string) error {
 	file, err := os.Create(outputPath)
 	if err != nil {
         log.Fatalf("Failed to create file: %v", err)
@@ -18,43 +20,44 @@ func EncodeToCSV(allColdstarts []float64, coldstartsFrom0 []float64, periodicCol
 	writer := csv.NewWriter(file)
     defer writer.Flush() 
 
-	header := []string{"Tame", "ColdstartFrom0", "PeriodicInvocation"}
+	header := []string{"FunctionName", "Time", "ColdstartFrom0", "PeriodicInvocation"}
     if err := writer.Write(header); err != nil {
         log.Fatalf("Failed to write header: %v", err)
     }
 
 	sort.Slice(allColdstarts, func(i, j int) bool {
-        return allColdstarts[i] < allColdstarts[j]
+        return allColdstarts[i].Timestamp < allColdstarts[j].Timestamp
     })
 	sort.Slice(coldstartsFrom0, func(i, j int) bool {
-        return coldstartsFrom0[i] < coldstartsFrom0[j]
+        return coldstartsFrom0[i].Timestamp < coldstartsFrom0[j].Timestamp
     })
 	sort.Slice(periodicColdstarts, func(i, j int) bool {
-        return periodicColdstarts[i] < periodicColdstarts[j]
+        return periodicColdstarts[i].Timestamp < periodicColdstarts[j].Timestamp
     })
 
     j, k := 0, 0
     // Multi-pointer linear merge
     for _, val := range allColdstarts {
-        for j < len(coldstartsFrom0) && coldstartsFrom0[j] < val {
+        for j < len(coldstartsFrom0) && coldstartsFrom0[j].Timestamp < val.Timestamp {
             j++
         }
         from0 := "false"
-        if j < len(coldstartsFrom0) && coldstartsFrom0[j] == val {
+        if j < len(coldstartsFrom0) && coldstartsFrom0[j].Timestamp == val.Timestamp {
             from0 = "true"
         }
 
         // 同理，向前移动 k，使 s3[k] >= val 或 k 超出边界
-        for k < len(periodicColdstarts) && periodicColdstarts[k] < val {
+        for k < len(periodicColdstarts) && periodicColdstarts[k].Timestamp < val.Timestamp {
             k++
         }
         periodic := "false"
-        if k < len(periodicColdstarts) && periodicColdstarts[k] == val {
+        if k < len(periodicColdstarts) && periodicColdstarts[k].Timestamp == val.Timestamp {
             periodic = "true"
         }
 		// output
-		time := strconv.FormatFloat(val, 'f', -1, 64)
-		row := []string{time, from0, periodic}
+		time := strconv.FormatFloat(val.Timestamp, 'f', -1, 64)
+		functionName := val.FunctionName
+		row := []string{functionName, time, from0, periodic}
 		if err := writer.Write(row); err != nil {
 			log.Fatalf("Failed to write row: %v", err)
 		}

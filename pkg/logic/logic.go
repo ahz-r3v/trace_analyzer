@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"trace-analyser/pkg/info"
 	"log"
-	// "sort"
 )
 
 // ColdStartAnalyzer analyzes invocation data and determines cold start timestamps.
@@ -90,12 +89,13 @@ func absDiff(a, b float64) float64 {
 
 // AnalyzeColdStarts processes invocation timestamps and durations for multiple functions,
 // returning a map where the key is the function identifier and the value is a list of cold start timestamps.
-func (c *ColdStartAnalyzer) AnalyzeColdStarts(invocations []info.FunctionInvocation) ([]float64, error) {
-	results := make([]float64, 0)
+func (c *ColdStartAnalyzer) AnalyzeColdStarts(invocations []info.FunctionInvocation) ([]info.LabeledTimestamp, error) {
+	results := make([]info.LabeledTimestamp, 0)
 
 	for _, invocationData := range invocations {
 		timestamps := invocationData.Timestamps
 		durations := invocationData.Duration
+		functionName := invocationData.FunctionName
 
 		// Check slice length
 		if len(timestamps) != len(durations) {
@@ -104,7 +104,7 @@ func (c *ColdStartAnalyzer) AnalyzeColdStarts(invocations []info.FunctionInvocat
 
 		// Track active instances and their expiry times for this specific function
 		activeInstances := make([]Instance, 0) // Key: instance last end time, Value: expiry time
-		var coldStartTimestamps []float64
+		var coldStartTimestamps []info.LabeledTimestamp
 
 		for i, start := range timestamps {
 			duration := durations[i]
@@ -126,9 +126,15 @@ func (c *ColdStartAnalyzer) AnalyzeColdStarts(invocations []info.FunctionInvocat
 				}
 			}
 
-			// If no active instance is found, this is a cold start
+			// If no active instance found, this is a cold start
 			if !instanceFound {
-				coldStartTimestamps = append(coldStartTimestamps, start)
+				coldStartTimestamps = append(
+					coldStartTimestamps,
+					info.LabeledTimestamp{
+						Timestamp:    start,
+						FunctionName: functionName,
+					},
+			    )
 				// Create a new instance and set its expiry time
 				activeInstances = append(activeInstances, Instance{
 					LastEndTime: start + duration,
@@ -155,12 +161,13 @@ func (c *ColdStartAnalyzer) AnalyzeColdStarts(invocations []info.FunctionInvocat
 }
 
 // AnalyzeColdStartsFrom0 calculates cold starts from 0 instance.
-func (c *ColdStartAnalyzer) AnalyzeColdStartsFrom0(invocations []info.FunctionInvocation) ([]float64, error) {
-	results := make([]float64, 0)
+func (c *ColdStartAnalyzer) AnalyzeColdStartsFrom0(invocations []info.FunctionInvocation) ([]info.LabeledTimestamp, error) {
+	results := make([]info.LabeledTimestamp, 0)
 
 	for _, invocationData := range invocations {
 		timestamps := invocationData.Timestamps
 		durations := invocationData.Duration
+		functionName := invocationData.FunctionName
 
 		// Check slice length
 		if len(timestamps) != len(durations) {
@@ -169,7 +176,7 @@ func (c *ColdStartAnalyzer) AnalyzeColdStartsFrom0(invocations []info.FunctionIn
 
 		// Track active instances and their expiry times for this specific function
 		activeInstances := make([]Instance, 0)
-		var coldStartTimestamps []float64
+		var coldStartTimestamps []info.LabeledTimestamp
 
 		for i, start := range timestamps {
 			duration := durations[i]
@@ -191,7 +198,13 @@ func (c *ColdStartAnalyzer) AnalyzeColdStartsFrom0(invocations []info.FunctionIn
 
 			// If no active instance is found, this is a cold start
 			if !instanceFound {
-				coldStartTimestamps = append(coldStartTimestamps, start)
+				coldStartTimestamps = append(
+					coldStartTimestamps, 
+					info.LabeledTimestamp{
+						Timestamp:    start,
+						FunctionName: functionName,
+					},
+				)
 				// Create a new instance and set its expiry time
 				activeInstances = append(activeInstances, Instance{
 					LastEndTime: start,

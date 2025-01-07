@@ -7,7 +7,7 @@ type FunctionInvocation struct {
 	Duration     	[]float64 // List of invocation durations (in seconds since epoch)
 }
 
-type LabledTimestamp struct {
+type LabeledTimestamp struct {
 	Timestamp       float64
-	Lable           string
+	FunctionName    string
 }
