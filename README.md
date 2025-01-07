@@ -14,4 +14,4 @@ go run main.go -wrapper=azure2019 -keepalive=60 -tolerance=100 -iatDistribution=
 ```
 
 ##output format  
-time | isColdStartFrom0 | PeriodicFunction  
+| time | isColdStartFrom0 | PeriodicFunction |
