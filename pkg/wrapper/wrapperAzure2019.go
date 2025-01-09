@@ -17,10 +17,11 @@ import (
 func ParseAndConvertAzure2019(
 	  invocationFilePath string, 
 	  durationFilePath string, 
-	  iatDistribution common.IatDistribution,// common.Exponential / common.Uniform / common.Equidistant
+	  memoryFilePath string,
+	  iatDistribution common.IatDistribution, // common.Exponential / common.Uniform / common.Equidistant
 	  shiftIAT bool,
 	  granularity common.TraceGranularity,
-	) ([]info.FunctionInvocation, error) {
+	) ([]info.FunctionInvocations, error) {
 	// Open the CSV file
 	invoFile, err := os.Open(invocationFilePath)
 	if err != nil {
@@ -33,6 +34,12 @@ func ParseAndConvertAzure2019(
 		return nil, fmt.Errorf("failed to open file: %w", err)
 	}
 	defer duraFile.Close()
+
+	memoryFile, err := os.Open(memoryFilePath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to open file: %w", err)
+	}
+	defer memoryFile.Close()
 
 	// Parse the CSV file
 	invoReader := csv.NewReader(invoFile)
@@ -47,7 +54,13 @@ func ParseAndConvertAzure2019(
 		return nil, fmt.Errorf("failed parsing duration file: %w", err)
 	}
 
-	results := make([]info.FunctionInvocation, 0)
+	functionMemoryStatsList := []*common.FunctionMemoryStats{}
+	err = gocsv.UnmarshalFile(memoryFile, &functionMemoryStatsList)
+	if err != nil { // Load all durations from file
+		return nil, fmt.Errorf("failed parsing memory file: %w", err)
+	}
+
+	results := make([]info.FunctionInvocations, 0)
 	for i, row := range invoRows {
 		if i == 0 {
 			continue
@@ -57,7 +70,7 @@ func ParseAndConvertAzure2019(
 		hashOwner := row[0]
 		hashApp := row[1]
 		hashFunction := row[2]
-		index := hashOwner+ hashApp + hashFunction
+		index := hashOwner + hashApp + hashFunction
 		trigger := row[3]
 		
 		for j := 4; j < len(row); j++ {
@@ -87,6 +100,14 @@ func ParseAndConvertAzure2019(
 			} 
 		}
 
+		// Search in memoryFile to find the corresponding memory data
+		for _, functionMemoryStats := range functionMemoryStatsList {
+			if functionMemoryStats.HashOwner + functionMemoryStats.HashApp + functionMemoryStats.HashFunction == index {
+				function.MemoryStats = functionMemoryStats
+				break
+			} 
+		}
+
 		// Convert invocation counts to timestamps
 		var timestamps []float64
 		var seed int64 = 123456789
@@ -94,11 +115,11 @@ func ParseAndConvertAzure2019(
 		specResult := specGen.GenerateInvocationData(&function, iatDistribution, shiftIAT, granularity)
 		timestamps = expandByColumn(specResult.IAT)
 
-		results = append(results, info.FunctionInvocation{
+		results = append(results, info.FunctionInvocations{
 			// HashApp:      hashApp,
 			FunctionName: index,
 			Timestamps:   timestamps,
-			Duration: 	  specResult.RawDuration,
+			Durations: 	  specResult.RawDuration,
 		})
 	}
 	log.Println("wrapper.ParseAndConvert return")

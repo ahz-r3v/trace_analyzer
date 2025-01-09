@@ -23,22 +23,24 @@ func main() {
 	nonFlagArgs := flag.Args()
 	invocationFile := ""
 	durationFile := ""
+	memoryFile := ""
 	outputPath := ""
-	invocationTimestamps := make([]info.FunctionInvocation, 0)
+	invocationTimestamps := make([]info.FunctionInvocations, 0)
 	var err error
 
 	switch *wrapperType{
 	case "":
 		log.Fatalf("-wrapper not defined.")
 	case "azure2019":
-		if len(nonFlagArgs) != 3 {
-			log.Fatalf("-wrapper=azure2019 need 3 Args!")
+		if len(nonFlagArgs) != 4 {
+			log.Fatalf("-wrapper=azure2019 need 4 Args! (<invocation_file_path> <duration_file_path> <output_file_path>)")
 		} else {
 			invocationFile = nonFlagArgs[0]
 			durationFile = nonFlagArgs[1]
-			outputPath = nonFlagArgs[2]
+			memoryFile = nonFlagArgs[2]
+			outputPath = nonFlagArgs[3]
 			// Step 1: Process the trace file and get invocation data
-			invocationTimestamps, err = wrapper.ParseAndConvertAzure2019(invocationFile, durationFile, 
+			invocationTimestamps, err = wrapper.ParseAndConvertAzure2019(invocationFile, durationFile, memoryFile, 
 				common.IatDistribution(*iatDistribution), *shiftIAT, common.TraceGranularity(*granularity))
 			if err != nil {
 				log.Fatalf("Error processing trace file: %v", err)

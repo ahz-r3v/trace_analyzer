@@ -46,7 +46,6 @@ func EncodeToCSV(allColdstarts []info.LabeledTimestamp, coldstartsFrom0 []info.L
             from0 = "true"
         }
 
-        // 同理，向前移动 k，使 s3[k] >= val 或 k 超出边界
         for k < len(periodicColdstarts) && periodicColdstarts[k].Timestamp < val.Timestamp {
             k++
         }

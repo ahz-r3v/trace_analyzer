@@ -20,13 +20,13 @@ type Instance struct {
 // FilterPeriodicInvocations identifies periodic invocation patterns across all functions.
 // Returns two slices: one for periodic invocations and another for non-periodic invocations.
 func (c *ColdStartAnalyzer) FilterPeriodicInvocations(
-	invocations []info.FunctionInvocation,
+	invocations []info.FunctionInvocations,
 	tolerance float64,
-) ([]info.FunctionInvocation, []info.FunctionInvocation, error) {
+) ([]info.FunctionInvocations, []info.FunctionInvocations, error) {
 	const minPeriodicDuration float64 = 12 * 60 * 60 * 1000 // 12 hours in milliseconds
 
-	var periodicInvocations []info.FunctionInvocation
-	var nonPeriodicInvocations []info.FunctionInvocation
+	var periodicInvocations []info.FunctionInvocations
+	var nonPeriodicInvocations []info.FunctionInvocations
 
 	for _, invocationData := range invocations {
 		timestamps := invocationData.Timestamps
@@ -89,12 +89,12 @@ func absDiff(a, b float64) float64 {
 
 // AnalyzeColdStarts processes invocation timestamps and durations for multiple functions,
 // returning a map where the key is the function identifier and the value is a list of cold start timestamps.
-func (c *ColdStartAnalyzer) AnalyzeColdStarts(invocations []info.FunctionInvocation) ([]info.LabeledTimestamp, error) {
+func (c *ColdStartAnalyzer) AnalyzeColdStarts(invocations []info.FunctionInvocations) ([]info.LabeledTimestamp, error) {
 	results := make([]info.LabeledTimestamp, 0)
 
 	for _, invocationData := range invocations {
 		timestamps := invocationData.Timestamps
-		durations := invocationData.Duration
+		durations := invocationData.Durations
 		functionName := invocationData.FunctionName
 
 		// Check slice length
@@ -109,11 +109,6 @@ func (c *ColdStartAnalyzer) AnalyzeColdStarts(invocations []info.FunctionInvocat
 		for i, start := range timestamps {
 			duration := durations[i]
 			instanceFound := false
-			// fmt.Println("s:", start)
-			// fmt.Println(duration)
-
-			// Check if any instance is available
-			// for i, instance := range activeInstances {
 			for j := len(activeInstances) - 1; j >= 0; j-- {
 				instance := activeInstances[j]
 				if start > instance.LastEndTime && start < instance.ExpiryTime {
@@ -161,12 +156,12 @@ func (c *ColdStartAnalyzer) AnalyzeColdStarts(invocations []info.FunctionInvocat
 }
 
 // AnalyzeColdStartsFrom0 calculates cold starts from 0 instance.
-func (c *ColdStartAnalyzer) AnalyzeColdStartsFrom0(invocations []info.FunctionInvocation) ([]info.LabeledTimestamp, error) {
+func (c *ColdStartAnalyzer) AnalyzeColdStartsFrom0(invocations []info.FunctionInvocations) ([]info.LabeledTimestamp, error) {
 	results := make([]info.LabeledTimestamp, 0)
 
 	for _, invocationData := range invocations {
 		timestamps := invocationData.Timestamps
-		durations := invocationData.Duration
+		durations := invocationData.Durations
 		functionName := invocationData.FunctionName
 
 		// Check slice length
@@ -221,11 +216,10 @@ func (c *ColdStartAnalyzer) AnalyzeColdStartsFrom0(invocations []info.FunctionIn
 	return results, nil
 }
 
-func (c *ColdStartAnalyzer) ExpandInvocations(invocations []info.FunctionInvocation) ([]float64, error) {
+func (c *ColdStartAnalyzer) ExpandInvocations(invocations []info.FunctionInvocations) ([]float64, error) {
 	var allStartTimestamps []float64
 
 	for _, invocation := range invocations {
-		// 检查 Timestamps 是否为空
 		if len(invocation.Timestamps) == 0 {
 			continue
 		}
