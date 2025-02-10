@@ -33,7 +33,7 @@ func main() {
 		log.Fatalf("-wrapper not defined.")
 	case "azure2019":
 		if len(nonFlagArgs) != 4 {
-			log.Fatalf("-wrapper=azure2019 need 4 Args! (<invocation_file_path> <duration_file_path> <output_file_path>)")
+			log.Fatalf("-wrapper=azure2019 need 4 Args! (<invocation_file_path> <duration_file_path> <memory_file_path> <output_file_path>)")
 		} else {
 			invocationFile = nonFlagArgs[0]
 			durationFile = nonFlagArgs[1]
@@ -48,7 +48,7 @@ func main() {
 		}
 	case "azure2021":
 		if len(nonFlagArgs) != 2 {
-			log.Fatalf("-wrapper=azure2021 need 2 Args!")
+			log.Fatalf("-wrapper=azure2021 need 2 Args!(<invocation_file_path> <output_file_path>)")
 		} else {
 			invocationFile = nonFlagArgs[0]
 			outputPath = nonFlagArgs[1]

@@ -1,0 +1,14 @@
+# github.com/gocarina/gocsv v0.0.0-20240520201108-78e41c74b4b1
+## explicit; go 1.13
+github.com/gocarina/gocsv
+# github.com/sirupsen/logrus v1.9.3
+## explicit; go 1.13
+github.com/sirupsen/logrus
+# github.com/vhive-serverless/loader v0.0.0-20241122130231-4fd007a1f85d
+## explicit; go 1.22.7
+github.com/vhive-serverless/loader/pkg/common
+github.com/vhive-serverless/loader/pkg/generator
+# golang.org/x/sys v0.27.0
+## explicit; go 1.18
+golang.org/x/sys/unix
+golang.org/x/sys/windows
